@@ -1,0 +1,5 @@
+bin/totp-cli
+build
+*.tmp
+nob
+nob.old
