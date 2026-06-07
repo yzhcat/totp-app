@@ -3,3 +3,5 @@ build
 *.tmp
 nob
 nob.old
+*.exe
+*.bin

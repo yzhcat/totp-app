@@ -12,8 +12,8 @@
 #define CLI_OUTPUT_PATH "bin/totp-cli.exe"
 #define TUI_OUTPUT_PATH "bin/totp-tui.exe"
 #else
-#define CLI_OUTPUT_PATH "bin/totp-cli"
-#define TUI_OUTPUT_PATH "bin/totp-tui"
+#define CLI_OUTPUT_PATH "bin/totp-cli.bin"
+#define TUI_OUTPUT_PATH "bin/totp-tui.bin"
 #endif
 
 // clean 命令
