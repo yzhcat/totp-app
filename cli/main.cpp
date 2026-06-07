@@ -5,7 +5,57 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <stdlib.h>
+
+#ifdef _WIN32
+    #include <io.h>
+    #define isatty _isatty
+    #define STDIN_FILENO 0
+#else
+    #include <unistd.h>
+#endif
+
+// 跨平台时间函数封装
+#if defined(_WIN32) || defined(_WIN64)
+// Windows: localtime_s(struct tm*, time_t*)
+// Linux:   localtime_r(time_t*, struct tm*)
+static struct tm* localtime_r(const time_t* timep, struct tm* result) {
+    if (localtime_s(result, timep) == 0) {
+        return result;
+    }
+    return NULL;
+}
+
+// Windows 上没有 strptime，需要自己实现简单版本
+static char* my_strptime(const char* s, const char* format, struct tm* tm) {
+    // 支持格式: HH:mm:ss 和 yyyy-MM-dd HH:mm:ss
+    if (strstr(format, "%Y") != NULL) {
+        // yyyy-MM-dd HH:mm:ss 格式
+        int year, month, day, hour, min, sec;
+        if (sscanf(s, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec) == 6) {
+            tm->tm_year = year - 1900;
+            tm->tm_mon = month - 1;
+            tm->tm_mday = day;
+            tm->tm_hour = hour;
+            tm->tm_min = min;
+            tm->tm_sec = sec;
+            return (char*)(s + strlen(s));
+        }
+        return NULL;
+    } else if (strstr(format, "%H") != NULL) {
+        // HH:mm:ss 格式
+        int hour, min, sec;
+        if (sscanf(s, "%d:%d:%d", &hour, &min, &sec) == 3) {
+            tm->tm_hour = hour;
+            tm->tm_min = min;
+            tm->tm_sec = sec;
+            return (char*)(s + strlen(s));
+        }
+        return NULL;
+    }
+    return NULL;
+}
+#define strptime my_strptime
+#endif
 
 #define OTPAUTH_IMPLEMENTATION
 #include "lib/otpauth.h"
@@ -129,7 +179,7 @@ void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int 
             printf("%s%s\n", code_str, offset == 0 ? "*" : "");
             continue;
         }else{
-            char marker[8];
+            char marker[16];
             if (offset == 0) {
                 snprintf(marker, sizeof(marker), "[ 0]");
             } else if (offset > 0) {
@@ -205,8 +255,10 @@ int main(int argc, char* argv[]) {
     
     // 如果没有任何参数，直接显示帮助信息
     if (argc == 1) {
-        print_usage(argv[0]);
-        return 0;
+        if (isatty(STDIN_FILENO)) {
+            print_usage(argv[0]);
+            return 0;
+        }
     }
     
     // 跨平台参数解析

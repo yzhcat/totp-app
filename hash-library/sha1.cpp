@@ -7,7 +7,13 @@
 #include "sha1.h"
 
 // big endian architectures need #define __BYTE_ORDER __BIG_ENDIAN
-#ifndef _MSC_VER
+// Windows 平台不需要 endian.h
+#if defined(_WIN32) || defined(_WIN64)
+// Windows 字节序处理
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN 4321
+#else
 #include <endian.h>
 #endif
 
@@ -62,7 +68,7 @@ namespace
 #if defined(__GNUC__) || defined(__clang__)
     return __builtin_bswap32(x);
 #endif
-#ifdef MSC_VER
+#if defined(_MSC_VER)
     return _byteswap_ulong(x);
 #endif
 
