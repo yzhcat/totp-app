@@ -3,8 +3,25 @@
 // gcc nob.c -o nob
 
 #define NOB_IMPLEMENTATION
-#define NOB_NO_ECHO
 #include "nob.h"
+
+// 输出文件路径
+#define OUTPUT_DIR "bin"
+// 输出文件名
+#if defined(_WIN32) || defined(_WIN64)
+#define CLI_OUTPUT_PATH "bin/totp-cli.exe"
+#define TUI_OUTPUT_PATH "bin/totp-tui.exe"
+#else
+#define CLI_OUTPUT_PATH "bin/totp-cli"
+#define TUI_OUTPUT_PATH "bin/totp-tui"
+#endif
+
+// clean 命令
+#if defined(_WIN32) || defined(_WIN64)
+#define CLEAN_CMD "cmd", "/c", "rmdir", "/s/q"
+#else
+#define CLEAN_CMD "rm", "-rf"
+#endif
 
 // 检查是否需要重新构建
 static int cli_needs_rebuild(void) {
@@ -18,7 +35,7 @@ static int cli_needs_rebuild(void) {
         "hash-library/sha256.cpp",
         "hash-library/sha512.cpp"
     };
-    return nob_needs_rebuild("bin/totp-cli", input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
+    return nob_needs_rebuild(CLI_OUTPUT_PATH, input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
 }
 
 static int tui_needs_rebuild(void) {
@@ -32,7 +49,7 @@ static int tui_needs_rebuild(void) {
         "hash-library/sha256.cpp",
         "hash-library/sha512.cpp"
     };
-    return nob_needs_rebuild("bin/totp-tui", input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
+    return nob_needs_rebuild(TUI_OUTPUT_PATH, input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
 }
 
 // 构建 CLI 工具
@@ -50,14 +67,14 @@ static bool build_cli(void) {
     nob_cmd_append(&cmd, "hash-library/sha256.cpp");
     nob_cmd_append(&cmd, "hash-library/sha512.cpp");
     
-    nob_cmd_append(&cmd, "-o", "bin/totp-cli");
+    nob_cmd_append(&cmd, "-o", CLI_OUTPUT_PATH);
     
-    nob_log(INFO, "构建 CLI 工具...");
+    nob_log(INFO, "Building CLI tool...");
     bool result = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
     
     if (result) {
-        nob_log(INFO, "CLI 工具构建完成: bin/totp-cli");
+        nob_log(INFO, "CLI tool built: %s", CLI_OUTPUT_PATH);
     }
     return result;
 }
@@ -78,14 +95,14 @@ static bool build_tui(void) {
     nob_cmd_append(&cmd, "hash-library/sha256.cpp");
     nob_cmd_append(&cmd, "hash-library/sha512.cpp");
     
-    nob_cmd_append(&cmd, "-o", "bin/totp-tui");
+    nob_cmd_append(&cmd, "-o", TUI_OUTPUT_PATH);
     
-    nob_log(INFO, "构建 TUI 应用...");
+    nob_log(INFO, "Building TUI application...");
     bool result = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
     
     if (result) {
-        nob_log(INFO, "TUI 应用构建完成: bin/totp-tui");
+        nob_log(INFO, "TUI application built: %s", TUI_OUTPUT_PATH);
     }
     return result;
 }
@@ -96,7 +113,7 @@ int main(int argc, char **argv) {
     const char *program = nob_shift_args(&argc, &argv);
 
     if (argc <= 0) {
-        nob_log(ERROR, "用法: %s [cli|tui|all|clean]", program);
+        nob_log(ERROR, "Usage: %s [cli|tui|all|clean]", program);
         return 1;
     }
 
@@ -104,14 +121,15 @@ int main(int argc, char **argv) {
 
     if (strcmp(command, "clean") == 0) {
         Nob_Cmd cmd = {0};
-        nob_cmd_append(&cmd, "rm", "-rf", "bin");
+        nob_cmd_append(&cmd, CLEAN_CMD, OUTPUT_DIR);
         nob_cmd_run_sync(cmd);
         nob_cmd_free(cmd);
+        nob_log(INFO, "clean completed: %s", OUTPUT_DIR);
         return 0;
     }
 
 
-    nob_mkdir_if_not_exists("bin");
+    nob_mkdir_if_not_exists(OUTPUT_DIR);
 
     if (strcmp(command, "cli") == 0 || strcmp(command, "all") == 0) {
         if (cli_needs_rebuild()) {
@@ -127,8 +145,8 @@ int main(int argc, char **argv) {
 
     if (strcmp(command, "cli") != 0 && strcmp(command, "tui") != 0 && 
         strcmp(command, "all") != 0 && strcmp(command, "clean") != 0) {
-        nob_log(ERROR, "未知命令: %s", command);
-        nob_log(ERROR, "支持的命令: cli, tui, all, clean");
+        nob_log(ERROR, "Unknown command: %s", command);
+        nob_log(ERROR, "Supported commands: cli, tui, all, clean");
         return 1;
     }
 
