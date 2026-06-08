@@ -1,6 +1,6 @@
 // totp-cli - TOTP 命令行工具
 // 用法: totp-cli <otpauth_url> [-t <time>] [-p <preview_spec>]
-
+#define VERSION "0.1.0"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -104,11 +104,16 @@ void parse_preview(const char* preview_spec, int* start, int* end) {
     *end = 0;
     
     // 检查是否包含冒号（范围格式）
-    if (strchr(preview_spec, ':')) {
+    if (preview_spec[0] != ':' && strchr(preview_spec, ':')) {
         sscanf(preview_spec, "%d:%d", start, end);
     } else {
         // 单个数字
-        int val = atoi(preview_spec);
+        int val;
+        if (preview_spec[0]==':'){
+            val = atoi(preview_spec+1);
+        }else{
+            val = atoi(preview_spec);
+        }
         if (val >= 0) {
             // 正数等价于 :N
             *start = 0;
@@ -116,7 +121,7 @@ void parse_preview(const char* preview_spec, int* start, int* end) {
         } else {
             // 负数表示单个偏移
             *start = val;
-            *end = val;
+            *end = 0;
         }
     }
 }
@@ -193,7 +198,8 @@ void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int 
     }
 }
 
-void print_usage(const char* prog_name) {
+void print_usage(const char* prog_name,bool more_info=false) {
+    printf("版本: %s\n", VERSION);
     printf("用法: %s [otpauth_url] [-t <time>] [-p <preview_spec>]\n", prog_name);
     printf("\n");
     printf("参数:\n");
@@ -204,21 +210,26 @@ void print_usage(const char* prog_name) {
     printf("                   格式: :n (当前+后n个), n (单个偏移), n1:n2 (范围)\n");
     printf("                   示例: -p :3, -p -1, -p -2:2\n");
     printf("  -h, --help       显示此帮助信息\n");
+    printf("  -s, --short      只打印验证码\n");
     printf("\n");
-    printf("示例:\n");
-    printf("  # 直接传入 URL\n");
-    printf("  %s \"otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP\"\n", prog_name);
-    printf("\n");
-    printf("  # 从管道读取\n");
-    printf("  echo \"otpauth://totp/...\" | %s -p -1:2\n", prog_name);
-    printf("  head totp.cfg -n 1 | %s\n", prog_name);
-    printf("\n");
-    printf("  # 指定时间和预览\n");
-    printf("  %s \"otpauth://totp/...\" -t 14:30:00 -p -1:2\n", prog_name);
+    if (more_info) {
+        printf("示例:\n");
+        printf("  # 直接传入 URL\n");
+        printf("  %s \"otpauth://totp/Example:alice@google.com?secret=JBSWY3DPEHPK3PXP\"\n", prog_name);
+        printf("\n");
+        printf("  # 从管道读取\n");
+        printf("  echo \"otpauth://totp/...\" | %s -p -1:2\n", prog_name);
+        printf("  head totp.cfg -n 1 | %s\n", prog_name);
+        printf("\n");
+        printf("  # 指定时间和预览\n");
+        printf("  %s \"otpauth://totp/...\" -t 14:30:00 -p -1:2\n", prog_name);
+    }
 }
 
-// 从标准输入读取一行（跨平台）
+// 从标准输入读取一行 用于从管道读取 otpauth URL
 char* read_stdin_line() {
+    // 如果是终端，直接返回 NULL
+    if (isatty(STDIN_FILENO)) return NULL;
     static char buffer[4096];
     
     while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
@@ -250,13 +261,14 @@ int main(int argc, char* argv[]) {
     const char* otpauth_url = NULL;
     const char* time_str = NULL;
     const char* preview_spec = NULL;
+    int preview_start = 0, preview_end = 0;
     char* stdin_url = NULL;
     bool short_code = false; //-s 只打印验证码
     
     // 如果没有任何参数，直接显示帮助信息
     if (argc == 1) {
         if (isatty(STDIN_FILENO)) {
-            print_usage(argv[0]);
+            print_usage(argv[0],true);
             return 0;
         }
     }
@@ -267,30 +279,35 @@ int main(int argc, char* argv[]) {
             time_str = argv[++i];
         } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
             preview_spec = argv[++i];
-            if (preview_spec[0] == '-') {
-                fprintf(stderr, "错误: 预览参数不能以 '-' 开头\n");
+            parse_preview(preview_spec, &preview_start, &preview_end);
+            if (preview_start > preview_end || (preview_start == 0 && preview_end == 0)) {
+                print_usage(argv[0]);
+                fprintf(stderr, "错误: -p 参数范围无效\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "-s") == 0) {
             short_code = true;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-            print_usage(argv[0]);
+            print_usage(argv[0],true);
+            return 0;
+        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+            printf("版本: %s\n", VERSION);
             return 0;
         } else if (argv[i][0] != '-') {
             otpauth_url = argv[i];
         } else {
-            fprintf(stderr, "错误: 未知参数: %s\n", argv[i]);
             print_usage(argv[0]);
+            fprintf(stderr, "错误: 无效参数: %s\n", argv[i]);
             return 1;
         }
     }
-    
+
     // 如果没有提供 URL，尝试从标准输入读取
     if (!otpauth_url) {
         stdin_url = read_stdin_line();
         if (!stdin_url) {
-            fprintf(stderr, "错误: 缺少 otpauth URL 参数\n");
             print_usage(argv[0]);
+            fprintf(stderr, "错误: 缺少 otpauth URL 参数\n");
             return 1;
         }
         otpauth_url = stdin_url;
@@ -327,9 +344,7 @@ int main(int argc, char* argv[]) {
     
     // 处理预览参数
     if (preview_spec) {
-        int start, end;
-        parse_preview(preview_spec, &start, &end);
-        print_preview_codes(&entry, timestamp, start, end, short_code);
+        print_preview_codes(&entry, timestamp, preview_start, preview_end, short_code);
     }
     
     // 清理

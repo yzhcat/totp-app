@@ -131,16 +131,20 @@ int main(int argc, char **argv) {
 
     nob_mkdir_if_not_exists(OUTPUT_DIR);
 
+    char RUN_PATH[256];
+
     if (strcmp(command, "cli") == 0 || strcmp(command, "all") == 0) {
         if (cli_needs_rebuild()) {
             build_cli();
         }
+        strcpy(RUN_PATH, CLI_OUTPUT_PATH);
     }
 
     if (strcmp(command, "tui") == 0 || strcmp(command, "all") == 0) {
         if (tui_needs_rebuild()) {
             build_tui();
         }
+        strcpy(RUN_PATH, TUI_OUTPUT_PATH);
     }
 
     if (strcmp(command, "cli") != 0 && strcmp(command, "tui") != 0 && 
@@ -149,6 +153,18 @@ int main(int argc, char **argv) {
         nob_log(ERROR, "Supported commands: cli, tui, all, clean");
         return 1;
     }
-
+    // Run the test
+    Nob_Cmd cmd = {0};
+    // 如果没有额外参数，传递 -h 显示帮助
+    if (argc > 0) {
+        // 将剩余参数传递给可执行程序
+        nob_cmd_append(&cmd, RUN_PATH);
+        for (int i = 0; i < argc; i++) {
+            nob_cmd_append(&cmd, argv[i]);
+        }
+    } else {
+        nob_cmd_append(&cmd, RUN_PATH, "-h");
+    }
+    if (!nob_cmd_run(&cmd)) return 1;
     return 0;
 }
