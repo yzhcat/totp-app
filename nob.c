@@ -128,8 +128,9 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-
-    nob_mkdir_if_not_exists(OUTPUT_DIR);
+    if(!file_exists(OUTPUT_DIR)){
+        nob_mkdir_if_not_exists(OUTPUT_DIR);
+    }
 
     char RUN_PATH[256];
 
@@ -165,6 +166,6 @@ int main(int argc, char **argv) {
     } else {
         nob_cmd_append(&cmd, RUN_PATH, "-h");
     }
-    if (!nob_cmd_run(&cmd)) return 1;
+    if (!nob_cmd_run(&cmd, NULL)) return 1;
     return 0;
 }
