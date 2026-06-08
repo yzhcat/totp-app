@@ -156,16 +156,7 @@ int main(int argc, char **argv) {
     }
     // Run the test
     Nob_Cmd cmd = {0};
-    // 如果没有额外参数，传递 -h 显示帮助
-    if (argc > 0) {
-        // 将剩余参数传递给可执行程序
-        nob_cmd_append(&cmd, RUN_PATH);
-        for (int i = 0; i < argc; i++) {
-            nob_cmd_append(&cmd, argv[i]);
-        }
-    } else {
-        nob_cmd_append(&cmd, RUN_PATH, "-h");
-    }
+    nob_cmd_append(&cmd, RUN_PATH);
     if (!nob_cmd_run(&cmd, NULL)) return 1;
     return 0;
 }

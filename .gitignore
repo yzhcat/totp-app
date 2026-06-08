@@ -2,6 +2,6 @@ bin/totp-cli
 build
 *.tmp
 nob
-nob.old
+*.old
 *.exe
 *.bin

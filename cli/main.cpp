@@ -14,8 +14,11 @@
     #include <unistd.h>
 #endif
 
-// 跨平台时间函数封装
 #if defined(_WIN32) || defined(_WIN64)
+#include <windows.h> 
+//SetConsoleOutputCP(CP_UTF8); // 设置控制台输出为 UTF-8
+
+// 跨平台时间函数封装
 // Windows: localtime_s(struct tm*, time_t*)
 // Linux:   localtime_r(time_t*, struct tm*)
 static struct tm* localtime_r(const time_t* timep, struct tm* result) {
@@ -258,6 +261,10 @@ char* read_stdin_line() {
 }
 
 int main(int argc, char* argv[]) {
+
+#if defined(_WIN32) || defined(_WIN64)
+    SetConsoleOutputCP(CP_UTF8); // 设置控制台输出为 UTF-8
+#endif
     const char* otpauth_url = NULL;
     const char* time_str = NULL;
     const char* preview_spec = NULL;
