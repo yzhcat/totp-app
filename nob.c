@@ -41,6 +41,7 @@ static int cli_needs_rebuild(void) {
 static int tui_needs_rebuild(void) {
     const char *input_paths[] = {
         "tui/main.cpp",
+        "tui/ftxui/ftxui_all.hpp",
         "lib/totp.hpp",
         "lib/otpauth.h",
         "lib/base32.h",
@@ -60,7 +61,6 @@ static bool build_cli(void) {
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
     nob_cmd_append(&cmd, "-I.");
-    // nob_cmd_append(&cmd, "-Ilib/hash-library");
     
     nob_cmd_append(&cmd, "cli/main.cpp");
     nob_cmd_append(&cmd, "lib/hash-library/sha1.cpp");
@@ -86,8 +86,8 @@ static bool build_tui(void) {
     nob_cmd_append(&cmd, "g++");
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
+    nob_cmd_append(&cmd, "-DUNICODE");
     nob_cmd_append(&cmd, "-I.");
-    // nob_cmd_append(&cmd, "-Ilib/hash-library");
     nob_cmd_append(&cmd, "-pthread");
     
     nob_cmd_append(&cmd, "tui/main.cpp");
@@ -154,11 +154,10 @@ int main(int argc, char **argv) {
         nob_log(ERROR, "Supported commands: cli, tui, all, clean");
         return 1;
     }
-    // Run the test
+
     Nob_Cmd cmd = {0};
     nob_cmd_append(&cmd, RUN_PATH);
     if (argc > 0) {
-        // 将剩余参数传递给可执行程序
         for (int i = 0; i < argc; i++) {
             nob_cmd_append(&cmd, argv[i]);
         }
