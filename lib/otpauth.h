@@ -69,6 +69,12 @@ void otpauth_free(OTPAuthEntry *entry);
 #include <ctype.h>
 #include <stdio.h>
 
+// strcasecmp strncasecmp is not available on Windows, so we define them here for compatibility.
+#if defined(_WIN32) || defined(_WIN64)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
+
 /*-----------------------------------------------------------------------------
  * Internal utilities
  *-----------------------------------------------------------------------------*/

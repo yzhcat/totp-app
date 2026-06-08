@@ -157,6 +157,12 @@ int main(int argc, char **argv) {
     // Run the test
     Nob_Cmd cmd = {0};
     nob_cmd_append(&cmd, RUN_PATH);
+    if (argc > 0) {
+        // 将剩余参数传递给可执行程序
+        for (int i = 0; i < argc; i++) {
+            nob_cmd_append(&cmd, argv[i]);
+        }
+    }
     if (!nob_cmd_run(&cmd, NULL)) return 1;
     return 0;
 }
