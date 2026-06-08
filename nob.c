@@ -30,10 +30,10 @@ static int cli_needs_rebuild(void) {
         "lib/totp.hpp",
         "lib/otpauth.h",
         "lib/base32.h",
-        "hash-library/hmac.h",
-        "hash-library/sha1.cpp",
-        "hash-library/sha256.cpp",
-        "hash-library/sha512.cpp"
+        "lib/hash-library/hmac.h",
+        "lib/hash-library/sha1.cpp",
+        "lib/hash-library/sha256.cpp",
+        "lib/hash-library/sha512.cpp"
     };
     return nob_needs_rebuild(CLI_OUTPUT_PATH, input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
 }
@@ -44,10 +44,10 @@ static int tui_needs_rebuild(void) {
         "lib/totp.hpp",
         "lib/otpauth.h",
         "lib/base32.h",
-        "hash-library/hmac.h",
-        "hash-library/sha1.cpp",
-        "hash-library/sha256.cpp",
-        "hash-library/sha512.cpp"
+        "lib/hash-library/hmac.h",
+        "lib/hash-library/sha1.cpp",
+        "lib/hash-library/sha256.cpp",
+        "lib/hash-library/sha512.cpp"
     };
     return nob_needs_rebuild(TUI_OUTPUT_PATH, input_paths, sizeof(input_paths)/sizeof(input_paths[0]));
 }
@@ -59,13 +59,13 @@ static bool build_cli(void) {
     nob_cmd_append(&cmd, "g++");
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
-    nob_cmd_append(&cmd, "-I.");
-    nob_cmd_append(&cmd, "-Ihash-library");
+    // nob_cmd_append(&cmd, "-I.");
+    // nob_cmd_append(&cmd, "-Ilib/hash-library");
     
     nob_cmd_append(&cmd, "cli/main.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha1.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha256.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha512.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha1.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha256.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha512.cpp");
     
     nob_cmd_append(&cmd, "-o", CLI_OUTPUT_PATH);
     
@@ -86,14 +86,14 @@ static bool build_tui(void) {
     nob_cmd_append(&cmd, "g++");
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
-    nob_cmd_append(&cmd, "-I.");
-    nob_cmd_append(&cmd, "-Ihash-library");
+    // nob_cmd_append(&cmd, "-I.");
+    // nob_cmd_append(&cmd, "-Ilib/hash-library");
     nob_cmd_append(&cmd, "-pthread");
     
     nob_cmd_append(&cmd, "tui/main.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha1.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha256.cpp");
-    nob_cmd_append(&cmd, "hash-library/sha512.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha1.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha256.cpp");
+    nob_cmd_append(&cmd, "lib/hash-library/sha512.cpp");
     
     nob_cmd_append(&cmd, "-o", TUI_OUTPUT_PATH);
     

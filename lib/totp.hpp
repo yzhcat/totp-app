@@ -52,10 +52,10 @@ inline int totp_parse_algorithm(const char* name){
 // ── hash-library headers ──────────────────────────────────
 // hash-library is C++ only; totp.h implementation is C++ too.
 // Compile with: g++ -std=c++17 ... sha1.cpp sha256.cpp [sha512.cpp]
-#include "sha1.h"
-#include "sha256.h"
-#include "sha512.h"
-#include "hmac.h"
+#include "hash-library/sha1.h"
+#include "hash-library/sha256.h"
+#include "hash-library/sha512.h"
+#include "hash-library/hmac.h"
 // Maximum hash output: SHA512 = 64 bytes
 #define TOTP_MAX_HASH_BYTES_ 64
 
