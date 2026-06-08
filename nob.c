@@ -59,7 +59,7 @@ static bool build_cli(void) {
     nob_cmd_append(&cmd, "g++");
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
-    // nob_cmd_append(&cmd, "-I.");
+    nob_cmd_append(&cmd, "-I.");
     // nob_cmd_append(&cmd, "-Ilib/hash-library");
     
     nob_cmd_append(&cmd, "cli/main.cpp");
@@ -86,7 +86,7 @@ static bool build_tui(void) {
     nob_cmd_append(&cmd, "g++");
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
-    // nob_cmd_append(&cmd, "-I.");
+    nob_cmd_append(&cmd, "-I.");
     // nob_cmd_append(&cmd, "-Ilib/hash-library");
     nob_cmd_append(&cmd, "-pthread");
     
