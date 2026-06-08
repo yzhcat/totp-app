@@ -1,3 +1,13 @@
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#define isatty _isatty
+#define STDIN_FILENO 0
+#else
+#include <unistd.h>
+#endif
+
+#include "ftxui/ftxui.hpp"
 #define TOTP_IMPLEMENTATION
 #define OTPAUTH_IMPLEMENTATION
 #include "lib/totp.hpp"
@@ -12,19 +22,6 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
-
-#ifdef _WIN32
-#include <windows.h>
-#include <io.h>
-#define NOMINMAX
-#define isatty _isatty
-#define STDIN_FILENO 0
-#else
-#include <unistd.h>
-#endif
-
-#define FTXUI_IMPLEMENTATION
-#include "ftxui/ftxui_all.hpp"
 
 struct TOTPEntry {
     OTPAuthEntry otp;
@@ -178,11 +175,11 @@ int main(int argc, char* argv[]) {
 
     renderer |= ftxui::CatchEvent([&](ftxui::Event event) {
         if (event == ftxui::Event::ArrowUp) {
-            selected_index = std::max(0, selected_index - 1);
+            selected_index = ((0 > (selected_index - 1)) ? 0 : (selected_index - 1));
             return true;
         }
         if (event == ftxui::Event::ArrowDown) {
-            selected_index = std::min(static_cast<int>(entries.size()) - 1, selected_index + 1);
+            selected_index = ((static_cast<int>(entries.size()) - 1 < selected_index + 1) ? (static_cast<int>(entries.size()) - 1) : (selected_index + 1));
             return true;
         }
         if (event == ftxui::Event::Character('q') || event == ftxui::Event::Escape) {

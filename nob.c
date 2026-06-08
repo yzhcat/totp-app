@@ -41,7 +41,6 @@ static int cli_needs_rebuild(void) {
 static int tui_needs_rebuild(void) {
     const char *input_paths[] = {
         "tui/main.cpp",
-        "tui/ftxui/ftxui_all.hpp",
         "lib/totp.hpp",
         "lib/otpauth.h",
         "lib/base32.h",
@@ -87,10 +86,12 @@ static bool build_tui(void) {
     nob_cmd_append(&cmd, "-std=c++17");
     nob_cmd_append(&cmd, "-Wall", "-Wextra", "-O2");
     nob_cmd_append(&cmd, "-DUNICODE");
+    nob_cmd_append(&cmd, "-DNOMINMAX");
     nob_cmd_append(&cmd, "-I.");
     nob_cmd_append(&cmd, "-pthread");
     
     nob_cmd_append(&cmd, "tui/main.cpp");
+    nob_cmd_append(&cmd, "tui/ftxui/ftxui.cpp");
     nob_cmd_append(&cmd, "lib/hash-library/sha1.cpp");
     nob_cmd_append(&cmd, "lib/hash-library/sha256.cpp");
     nob_cmd_append(&cmd, "lib/hash-library/sha512.cpp");
