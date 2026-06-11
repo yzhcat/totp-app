@@ -94,6 +94,8 @@ std::string format_code(uint32_t code, int digits) {
     return s;
 }
 
+uint32_t end_code = 0;
+
 int main(int argc, char* argv[]) {
 #ifdef _WIN32
     SetConsoleOutputCP(65001);
@@ -187,6 +189,15 @@ int main(int argc, char* argv[]) {
             screen.ExitLoopClosure()();
             return true;
         }
+        if (event == ftxui::Event::Return) {
+            if (!entries.empty() && selected_index >= 0 && selected_index < static_cast<int>(entries.size())) {
+                auto& entry = entries[selected_index];
+                end_code = entry.current_code;
+            }
+            running = false;
+            screen.ExitLoopClosure()();
+            return true;
+        }
         return false;
     });
 
@@ -205,5 +216,8 @@ int main(int argc, char* argv[]) {
         otpauth_free(&entry.otp);
     }
 
+    if (end_code != 0) {
+        std::cout << end_code << std::endl;
+    }
     return 0;
 }

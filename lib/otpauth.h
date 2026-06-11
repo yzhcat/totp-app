@@ -57,6 +57,21 @@ bool otpauth_serialize(const OTPAuthEntry *entry, char *buf, size_t buf_size);
  */
 void otpauth_free(OTPAuthEntry *entry);
 
+/**
+ * Initialize an OTPAuthEntry structure to all zeros.
+ *
+ * @param entry Pointer to OTPAuthEntry structure.
+ */
+void otpauth_init(OTPAuthEntry *entry);
+
+/**
+ * Calculate the required buffer size for serialization.
+ *
+ * @param entry Pointer to OTPAuthEntry structure.
+ * @return Required buffer size including null terminator, or 0 on error.
+ */
+size_t otpauth_serialize_len(const OTPAuthEntry *entry);
+
 #ifdef __cplusplus
 }
 #endif
@@ -124,38 +139,30 @@ static char *otp_strndup(const char *src, size_t n) {
     return dst;
 }
 
-/* Parse a single query parameter from a string that is modified in-place.
+/* Parse a single query parameter from a string.
    After a successful parse, *params is advanced past the parsed parameter. */
 static bool otp_parse_query_param(char **params, const char *name, char **value) {
     if (!params || !name || !value) return false;
+    const char *p = *params;
+    if (!p || !*p) return false;
     size_t name_len = strlen(name);
-    for (const char *p = *params; p && *p; ) {
+
+    while (*p) {
         const char *amp = strchr(p, '&');
         size_t pair_len = amp ? (size_t)(amp - p) : strlen(p);
-
         const char *eq = (const char *)memchr(p, '=', pair_len);
+        
         if (eq) {
             size_t key_len = (size_t)(eq - p);
             if (key_len == name_len && strncasecmp(p, name, key_len) == 0) {
                 size_t val_len = pair_len - key_len - 1;
                 *value = otp_strndup(eq + 1, val_len);
                 if (!*value) return false;
-
-                size_t consumed = pair_len;
-                if (amp) consumed++;
-                if (*params + consumed > p) {
-                    *params += consumed;
-                } else {
-                    *params = (char *)p + consumed;
-                }
+                *params = (char *)(amp ? amp + 1 : p + pair_len);
                 return true;
             }
         }
-        if (amp) {
-            p = amp + 1;
-        } else {
-            break;
-        }
+        p = amp ? amp + 1 : p + pair_len;
     }
     return false;
 }
@@ -216,12 +223,12 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
     memset(out, 0, sizeof(OTPAuthEntry));
 
     /* Verify scheme */
-    if (strncasecmp(uri, "otpauth://", 10) != 0) return false;
+    if (strncasecmp(uri, "otpauth://", 10) != 0) goto err;
     p = uri + 10;
 
     /* Parse type (totp/hotp) */
     slash = strchr(p, '/');
-    if (!slash) return false;
+    if (!slash) goto err;
     out->type = otp_strndup(p, (size_t)(slash - p));
     if (!out->type) goto err;
     p = slash + 1;
@@ -235,6 +242,7 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
     if (!label_raw) goto err;
     label_decoded = otp_url_decode(label_raw);
     free(label_raw);
+    label_raw = NULL;  /* Prevent double free in err handler */
     if (!label_decoded) goto err;
 
     colon = strchr(label_decoded, ':');
@@ -244,16 +252,19 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
         out->account = otp_strdup(colon + 1);
         if (!out->issuer || !out->account) {
             free(label_decoded);
+            label_decoded = NULL;
             goto err;
         }
     } else {
         out->account = otp_strdup(label_decoded);
         if (!out->account) {
             free(label_decoded);
+            label_decoded = NULL;
             goto err;
         }
     }
     free(label_decoded);
+    label_decoded = NULL;  /* Prevent double free in err handler */
 
     if (!qmark) {
         /* No query string, but secret is required */
@@ -274,18 +285,21 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
     params_ptr = query_copy;
 
     if (!otp_parse_query_param(&params_ptr, "secret", &secret_val) || !secret_val) {
-        free(query_copy);
         goto err;
     }
     out->secret_b32 = secret_val;
+    secret_val = NULL;  /* Ownership transferred */
     otp_str_toupper(out->secret_b32);
 
     /* issuer if label doesn't contain it */
     if (otp_parse_query_param(&params_ptr, "issuer", &issuer_val)) {
         if (!out->issuer) {
             out->issuer = otp_url_decode(issuer_val);
+            free(issuer_val);
+            issuer_val = NULL;
         } else {
             free(issuer_val);
+            issuer_val = NULL;
         }
     }
     
@@ -294,9 +308,11 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
         if (otp_is_valid_algorithm(algo_val)) {
             free(out->algorithm);
             out->algorithm = algo_val;
+            algo_val = NULL;  /* Ownership transferred */
             otp_str_toupper(out->algorithm);
         } else {
             free(algo_val);
+            algo_val = NULL;
         }
     }
 
@@ -305,6 +321,7 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
         long val = strtol(digits_val, NULL, 10);
         if (val > 0) out->digits = (int)val;
         free(digits_val);
+        digits_val = NULL;
     }
 
     if (out->type && strcasecmp(out->type, "hotp") == 0) {
@@ -312,25 +329,35 @@ bool otpauth_parse(const char *uri, OTPAuthEntry *out) {
             long val = strtol(counter_val, NULL, 10);
             if (val >= 0) out->counter = (int)val;
             free(counter_val);
+            counter_val = NULL;
         }
     } else {
         if (otp_parse_query_param(&params_ptr, "period", &period_val) && period_val) {
             long val = strtol(period_val, NULL, 10);
             if (val > 0) out->period = (int)val;
             free(period_val);
+            period_val = NULL;
         }
     }
 
-    /* Optionally parse issuer from query, but we ignore it because label already gave issuer.
-       Some URIs have issuer only in query; you may want to handle that case. For now, do nothing. */
-
+    /* Success - free temporary resources */
     free(query_copy);
     return true;
 
 err:
+    free(query_copy);
+    free(label_raw);
+    free(label_decoded);
+    free(secret_val);
+    free(issuer_val);
+    free(algo_val);
+    free(digits_val);
+    free(counter_val);
+    free(period_val);
     otpauth_free(out);
     return false;
 }
+
 
 static size_t otp_url_encode_len(const char *s) {
     if (!s) return 0;
@@ -348,8 +375,44 @@ static size_t otp_url_encode_len(const char *s) {
     return len;
 }
 
+size_t otpauth_serialize_len(const OTPAuthEntry *entry) {
+    if (!entry || !entry->type || !entry->secret_b32) return 0;
+
+    size_t total = 0;
+    total += 10; /* "otpauth://" */
+    total += strlen(entry->type);
+    total += 1; /* '/' */
+
+    if (entry->issuer) {
+        total += otp_url_encode_len(entry->issuer);
+        total += 1; /* ':' */
+    }
+    if (entry->account) {
+        total += otp_url_encode_len(entry->account);
+    } else if (!entry->issuer) {
+        return 0; /* Need account */
+    }
+
+    total += 1; /* '?' */
+    total += 7 + otp_url_encode_len(entry->secret_b32); /* "secret=" */
+    if (entry->algorithm && strcmp(entry->algorithm, "SHA1") != 0) {
+        total += 10 + strlen(entry->algorithm); /* "&algorithm=" */
+    }
+    if (entry->digits != 6) {
+        total += 8 + snprintf(NULL, 0, "%d", entry->digits);
+    }
+    if (entry->type && strcasecmp(entry->type, "hotp") == 0) {
+        total += 9 + snprintf(NULL, 0, "%d", entry->counter);
+    } else if (entry->period != 30) {
+        total += 8 + snprintf(NULL, 0, "%d", entry->period);
+    }
+
+    return total + 1; /* +1 for null terminator */
+}
+
 bool otpauth_serialize(const OTPAuthEntry *entry, char *buf, size_t buf_size) {
     if (!entry || !entry->type || !entry->secret_b32) return false;
+    if (!buf || buf_size == 0) return false;
 
     size_t total = 0;
     total += 10; /* "otpauth://" */
@@ -380,7 +443,8 @@ bool otpauth_serialize(const OTPAuthEntry *entry, char *buf, size_t buf_size) {
         total += 8 + snprintf(NULL, 0, "%d", entry->period);
     }
 
-    if (total + 1 > buf_size) return false;
+    size_t required = otpauth_serialize_len(entry);
+    if (required == 0 || buf_size < required) return false;
 
     char *p = buf;
     p += sprintf(p, "otpauth://%s/", entry->type);
@@ -417,6 +481,10 @@ void otpauth_free(OTPAuthEntry *entry) {
     free(entry->secret_b32);
     free(entry->algorithm);
     memset(entry, 0, sizeof(OTPAuthEntry));
+}
+
+void otpauth_init(OTPAuthEntry *entry) {
+    if (entry) memset(entry, 0, sizeof(OTPAuthEntry));
 }
 
 #endif /* OTPAUTH_IMPLEMENTATION */
