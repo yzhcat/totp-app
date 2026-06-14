@@ -173,7 +173,7 @@ void print_code(const char* code_str, int digits, int remaining, int64_t timesta
 }
 
 // 打印预览验证码
-void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int start, int end, bool short_code) {
+void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int start, int end, bool short_code, bool show_expire) {
     TOTPAlgorithm algo = (TOTPAlgorithm)totp_parse_algorithm(entry->algorithm);
     for (int offset = start; offset <= end; offset++) {
         int64_t ts = totp_step_timestamp(entry->period, base_timestamp, offset);
@@ -184,7 +184,12 @@ void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int 
         char code_str[9];
         totp_code_str(code, entry->digits, code_str);
         if (short_code) {
-            printf("%s%s\n", code_str, offset == 0 ? "*" : "");
+            if (offset == 0 && show_expire) {
+                int remaining = totp_remaining(entry->period, base_timestamp);
+                printf("%s* --%ds\n", code_str, remaining);
+            } else {
+                printf("%s\n", code_str);
+            }
             continue;
         }else{
             char marker[16];
@@ -203,7 +208,7 @@ void print_preview_codes(const OTPAuthEntry* entry, int64_t base_timestamp, int 
 
 void print_usage(const char* prog_name,bool more_info=false) {
     printf("版本: %s\n", VERSION);
-    printf("用法: %s [otpauth_url] [-t <time>] [-p <preview_spec>]\n", prog_name);
+    printf("用法: %s [otpauth_url] [-t <time>] [-p <preview_spec>] [-e]\n", prog_name);
     printf("\n");
     printf("参数:\n");
     printf("  <otpauth_url>    otpauth://totp/... 格式的 URL（可从标准输入读取）\n");
@@ -212,6 +217,7 @@ void print_usage(const char* prog_name,bool more_info=false) {
     printf("  -p <preview>     预览多个验证码\n");
     printf("                   格式: :n (当前+后n个), n (单个偏移), n1:n2 (范围)\n");
     printf("                   示例: -p :3, -p -1, -p -2:2\n");
+    printf("  -e, --expire     显示剩余时间（需配合 -s 使用）\n");
     printf("  -h, --help       显示此帮助信息\n");
     printf("  -s, --short      只打印验证码\n");
     printf("\n");
@@ -226,6 +232,10 @@ void print_usage(const char* prog_name,bool more_info=false) {
         printf("\n");
         printf("  # 指定时间和预览\n");
         printf("  %s \"otpauth://totp/...\" -t 14:30:00 -p -1:2\n", prog_name);
+        printf("\n");
+        printf("  # 显示剩余时间\n");
+        printf("  echo \"otpauth://totp/...\" | %s -s -e\n", prog_name);
+        printf("  %s \"otpauth://totp/...\" -s -p -1:2 -e\n", prog_name);
     }
 }
 
@@ -271,6 +281,7 @@ int main(int argc, char* argv[]) {
     int preview_start = 0, preview_end = 0;
     char* stdin_url = NULL;
     bool short_code = false; //-s 只打印验证码
+    bool show_expire = false; //-e 显示剩余时间
     
     // 如果没有任何参数，直接显示帮助信息
     if (argc == 1) {
@@ -294,6 +305,8 @@ int main(int argc, char* argv[]) {
             }
         } else if (strcmp(argv[i], "-s") == 0) {
             short_code = true;
+        } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--expire") == 0) {
+            show_expire = true;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0],true);
             return 0;
@@ -344,14 +357,20 @@ int main(int argc, char* argv[]) {
     
     // 打印当前验证码
     if (short_code) {
-        if (!preview_spec) printf("%s\n", code_str);
+        if (!preview_spec) {
+            if (show_expire) {
+                printf("%s --%ds\n", code_str, remaining);
+            } else {
+                printf("%s\n", code_str);
+            }
+        }
     } else {
         print_code(code_str, entry.digits, remaining, timestamp, true);
     }
     
     // 处理预览参数
     if (preview_spec) {
-        print_preview_codes(&entry, timestamp, preview_start, preview_end, short_code);
+        print_preview_codes(&entry, timestamp, preview_start, preview_end, short_code, show_expire);
     }
     
     // 清理
