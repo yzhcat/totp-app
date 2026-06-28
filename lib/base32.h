@@ -123,9 +123,9 @@ static inline size_t base32_decode_block(uint8_t *dest, const char *src) {
             padding++;
             values[i] = 0;
         } else {
-            if (padding != 0) return -1;
+            if (padding != 0) return (size_t)-1;
             int v = base32_char_value(c);
-            if (v < 0) return -1;
+            if (v < 0) return (size_t)-1;
             values[i] = v;
         }
     }
@@ -138,7 +138,7 @@ static inline size_t base32_decode_block(uint8_t *dest, const char *src) {
         case 3: out_len = 3; break;
         case 4: out_len = 2; break;
         case 6: out_len = 1; break;
-        default: return -1;
+        default: return (size_t)-1;
     }
 
     /* Decode using bit shifting (RFC 4648 direct method) */
